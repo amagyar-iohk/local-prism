@@ -1,0 +1,127 @@
+---
+version: "3.8"
+
+services:
+  ##########################
+  # Database
+  ##########################
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,iris,agent,node_db"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_data_db:/var/lib/postgresql/data
+      - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
+      - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
+
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "node_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  enterprise-db:
+    image: postgres:13
+    restart: always
+    volumes:
+      - enterprise_pg_data_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: enterprise-services
+      POSTGRES_USER: enterprise-services
+      POSTGRES_PASSWORD: mysecret-password
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "enterprise-services", "-d", "enterprise-services"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ##########################
+  # Mediator
+  ##########################
+  mongo:
+    image: mongo:5.0
+    ports:
+      - 27017:27017
+    volumes:
+    - mediator_mongo_db:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+
+  rootsid-mediator:
+    network_mode: "container:prism-agent-svc"
+    image: rodopincha/didcomm-mediator
+    environment:
+      - DB_URL=mongodb://admin:admin@mongo:27017
+      - MONGODB_USER=admin
+      - MONGODB_PASSWORD=admin
+      - PUBLIC_URL=http://localhost:8000
+      - ROTATE_OOB=0
+    depends_on:
+      - "mongo"
+      - "prism-agent"
+
+  ##########################
+  # Building-blocks
+  ##########################
+  prism-node:
+    image: ghcr.io/input-output-hk/prism-node:${PRISM_NODE_VERSION}
+    environment:
+      NODE_PSQL_HOST: db:5432
+    depends_on:
+      db:
+        condition: service_healthy
+
+  prism-agent:
+    container_name: prism-agent-svc
+    image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
+    ports:
+      - "${MEDIATOR_PORT}:8000"
+      - "${PORT}:${PORT}"
+      - "8081:8081"
+    environment:
+      IRIS_HOST: iris
+      IRIS_PORT: 8081
+      CASTOR_DB_HOST: db
+      CASTOR_DB_PORT: 5432
+      CASTOR_DB_NAME: castor
+      CASTOR_DB_USER: postgres
+      CASTOR_DB_PASSWORD: postgres
+      POLLUX_DB_HOST: db
+      POLLUX_DB_PORT: 5432
+      POLLUX_DB_NAME: pollux
+      POLLUX_DB_USER: postgres
+      POLLUX_DB_PASSWORD: postgres
+      CONNECT_DB_HOST: db
+      CONNECT_DB_PORT: 5432
+      CONNECT_DB_NAME: connect
+      CONNECT_DB_USER: postgres
+      CONNECT_DB_PASSWORD: postgres
+      AGENT_DB_HOST: db
+      AGENT_DB_PORT: 5432
+      AGENT_DB_NAME: agent
+      AGENT_DB_USER: postgres
+      AGENT_DB_PASSWORD: postgres
+      REST_SERVICE_PORT: ${PORT}
+      DIDCOMM_SERVICE_PORT: 8081
+      DIDCOMM_SERVICE_URL: http://localhost:8081
+      PRISM_NODE_HOST: prism-node
+      PRISM_NODE_PORT: 50053
+    depends_on:
+      db:
+        condition: service_healthy
+      prism-node:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/connections"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  pg_data_db:
+  pgadmin:
+  enterprise_pg_data_db:
+  mediator_mongo_db:
