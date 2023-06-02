@@ -6,7 +6,6 @@ cleanup()
   exit 0
 }
 
-
 if [[ -z "${CI}" ]]; then
   trap cleanup SIGINT
 fi

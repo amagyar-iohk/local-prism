@@ -104,7 +104,7 @@ services:
       AGENT_DB_NAME: agent
       AGENT_DB_USER: postgres
       AGENT_DB_PASSWORD: postgres
-      REST_SERVICE_PORT: ${PORT}
+      AGENT_HTTP_PORT: ${PORT}
       DIDCOMM_SERVICE_PORT: 8081
       DIDCOMM_SERVICE_URL: http://localhost:8081
       PRISM_NODE_HOST: prism-node
