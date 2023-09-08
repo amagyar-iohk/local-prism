@@ -1,0 +1,36 @@
+
+name: 'Run latest prism-agent'
+description: 'Start simplified version of prism-agent with mediator'
+
+inputs:
+  token:
+    description: 'Some description'
+    required: true
+  mediator:
+    description: 'Mediator that will be used [prism; roots]'
+    required: true
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        repository: amagyar-iohk/test1
+        token: ${{ inputs.token }}
+        path: local-prism-${{github.sha}}
+
+    - name: Start prism-agent
+      working-directory: local-prism-${{ github.sha }}/${{ inputs.mediator }}
+      run: ./run.sh
+      shell: bash
+
+    - name: List
+      working-directory: local-prism-${{github.sha}}
+      run: ls -la
+      shell: bash
+
+    - name: Remove files
+      run: rm -rf local-prism-${{github.sha}}
+      shell: bash

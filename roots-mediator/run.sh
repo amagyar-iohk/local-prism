@@ -10,7 +10,7 @@ if [[ -z "${CI}" ]]; then
   trap cleanup SIGINT
 fi
 
-./update_env.sh
+../update_env.sh
 
 PRISM_PORT="${PPORT:-8090}"
 MEDIATOR_PORT="${MPORT:-8000}"
@@ -20,7 +20,7 @@ PORT="$PRISM_PORT" \
 docker compose \
   -p "local-prism" \
   -f "docker-compose.yml" \
-  --env-file .env up -d --wait
+  --env-file ../.env up -d --wait
 
 echo
 echo "Press ctrl+c to end execution"

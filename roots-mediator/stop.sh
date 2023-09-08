@@ -10,4 +10,4 @@ PORT=${PRISM_PORT} \
 docker compose \
   -p local-prism \
   -f "docker-compose.yml" \
-  --env-file .env down -v
+  --env-file ../.env down -v
