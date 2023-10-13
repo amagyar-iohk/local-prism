@@ -27,8 +27,6 @@ services:
   ##########################
   mongo:
     image: mongo:6.0
-    ports:
-      - "27017:27017"
     command: ["--auth"]
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
@@ -38,7 +36,7 @@ services:
       - ./initdb.js:/docker-entrypoint-initdb.d/initdb.js
 
   atalaprism-mediator:
-    network_mode: "container:prism-agent-svc"
+    network_mode: "container:${COMPOSE_NAME}"
     image: ghcr.io/input-output-hk/atala-prism-mediator:${ATALA_MEDIATOR_VERSION}
     environment:
       # Creates the identity:
@@ -69,15 +67,13 @@ services:
         condition: service_healthy
 
   prism-agent:
-    container_name: prism-agent-svc
+    container_name: ${COMPOSE_NAME}
     image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
     ports:
       - "${MEDIATOR_PORT}:8080"
       - "${PORT}:${PORT}"
-      - "8081:8081"
+      - "${DIDCOMM_PORT}:${DIDCOMM_PORT}"
     environment:
-      IRIS_HOST: iris
-      IRIS_PORT: 8081
       CASTOR_DB_HOST: db
       CASTOR_DB_PORT: 5432
       CASTOR_DB_NAME: castor
@@ -99,8 +95,8 @@ services:
       AGENT_DB_USER: postgres
       AGENT_DB_PASSWORD: postgres
       AGENT_HTTP_PORT: ${PORT}
-      DIDCOMM_SERVICE_PORT: 8081
-      DIDCOMM_SERVICE_URL: http://localhost:8081
+      DIDCOMM_SERVICE_PORT: ${DIDCOMM_PORT}
+      DIDCOMM_SERVICE_URL: http://localhost:${DIDCOMM_PORT}
       PRISM_NODE_HOST: prism-node
       PRISM_NODE_PORT: 50053
       VAULT_ADDR: http://vault-server:8200
@@ -132,7 +128,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-
+ 
   vault-server:
     image: vault:latest
     #    ports:
