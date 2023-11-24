@@ -8,16 +8,15 @@ services:
   db:
     image: postgres:13
     environment:
-      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,iris,agent,node_db"
+      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,agent,node_db"
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
       - pg_data_db:/var/lib/postgresql/data
       - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
       - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
-
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "node_db"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "agent"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,7 +94,8 @@ services:
       AGENT_DB_USER: postgres
       AGENT_DB_PASSWORD: postgres
       AGENT_HTTP_PORT: ${PORT}
-      DIDCOMM_SERVICE_PORT: ${DIDCOMM_PORT}
+      REST_SERVICE_URL: http://localhost:${PORT}
+      AGENT_DIDCOMM_PORT: ${DIDCOMM_PORT}
       DIDCOMM_SERVICE_URL: http://localhost:${DIDCOMM_PORT}
       PRISM_NODE_HOST: prism-node
       PRISM_NODE_PORT: 50053
@@ -125,10 +125,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT}/_system/health"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 5
- 
+
   vault-server:
     image: vault:latest
     #    ports:

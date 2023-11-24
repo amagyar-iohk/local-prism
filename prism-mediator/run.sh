@@ -10,7 +10,7 @@ if [[ -z "${CI}" ]]; then
   trap cleanup SIGINT
 fi
 
-../update_env.sh
+# ../update_env.sh
 
 PRISM_PORT="${PPORT:-8090}"
 MEDIATOR_PORT="${MPORT:-8080}"
