@@ -1,6 +1,4 @@
 ---
-version: "3.8"
-
 services:
   ##########################
   # Database
@@ -12,7 +10,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - pg_data_db:/var/lib/postgresql/data
       - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
       - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
     healthcheck:
@@ -67,7 +64,7 @@ services:
 
   prism-agent:
     container_name: ${COMPOSE_NAME}
-    image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
+    image:  ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
     ports:
       - "${MEDIATOR_PORT}:8080"
       - "${PORT}:${PORT}"
@@ -147,9 +144,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  pg_data_db:
-  pgadmin:
-  enterprise_pg_data_db:
-  mediator_mongo_db:
