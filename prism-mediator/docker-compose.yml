@@ -1,6 +1,21 @@
 ---
 services:
   ##########################
+  # Keycloak
+  ##########################
+  keycloak:
+    image: ghcr.io/hyperledger/identus-keycloak-plugins:0.2.0
+    ports:
+      - "${AUTHSERVER_PORT}:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      IDENTUS_URL: http://host.docker.internal:${PORT}
+    command: start-dev --health-enabled=true --hostname-url=http://host.docker.internal:${AUTHSERVER_PORT} --hostname-admin-url=http://host.docker.internal:${AUTHSERVER_PORT}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ##########################
   # Database
   ##########################
   db:
@@ -128,6 +143,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   vault-server:
     image: vault:1.13.3
