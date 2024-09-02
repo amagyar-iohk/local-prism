@@ -1,7 +1,20 @@
 ---
-version: "3.8"
-
 services:
+  ##########################
+  # Keycloak
+  ##########################
+  keycloak:
+    image: ghcr.io/hyperledger/identus-keycloak-plugins:0.2.0
+    ports:
+      - "${AUTHSERVER_PORT}:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      IDENTUS_URL: http://host.docker.internal:${PORT}
+    command: start-dev --health-enabled=true --hostname-url=http://host.docker.internal:${AUTHSERVER_PORT} --hostname-admin-url=http://host.docker.internal:${AUTHSERVER_PORT}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   ##########################
   # Database
   ##########################
@@ -12,7 +25,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - pg_data_db:/var/lib/postgresql/data
       - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
       - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
     healthcheck:
@@ -26,21 +38,30 @@ services:
   ##########################
   mongo:
     image: mongo:6.0
-    volumes:
-    - mediator_mongo_db:/data/db
+    command: ["--auth"]
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=mediator
+    volumes:
+      - ./initdb.js:/docker-entrypoint-initdb.d/initdb.js
 
-  rootsid-mediator:
+  atalaprism-mediator:
     network_mode: "container:${COMPOSE_NAME}"
-    image: rodopincha/didcomm-mediator
+    image: ghcr.io/input-output-hk/atala-prism-mediator:${ATALA_MEDIATOR_VERSION}
     environment:
-      - DB_URL=mongodb://admin:admin@mongo:27017
+      # Creates the identity:
+      - KEY_AGREEMENT_D=Z6D8LduZgZ6LnrOHPrMTS6uU2u5Btsrk1SGs4fn8M7c
+      - KEY_AGREEMENT_X=Sr4SkIskjN_VdKTn0zkjYbhGTWArdUNE4j_DmUpnQGw
+      - KEY_AUTHENTICATION_D=INXCnxFEl0atLIIQYruHzGd5sUivMRyQOzu87qVerug
+      - KEY_AUTHENTICATION_X=MBjnXZxkMcoQVVL21hahWAw43RuAG-i64ipbeKKqwoA
+      - SERVICE_ENDPOINTS=http://localhost:8080;ws://localhost:8080/ws
       - MONGODB_USER=admin
       - MONGODB_PASSWORD=admin
-      - PUBLIC_URL=http://localhost:8000
-      - ROTATE_OOB=0
+      - MONGODB_PROTOCOL=mongodb
+      - MONGODB_HOST=mongo
+      - MONGODB_PORT=27017
+      - MONGODB_DB_NAME=mediator
     depends_on:
       - "mongo"
       - "prism-agent"
@@ -58,9 +79,9 @@ services:
 
   prism-agent:
     container_name: ${COMPOSE_NAME}
-    image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
+    image:  ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
     ports:
-      - "${MEDIATOR_PORT}:8000"
+      - "${MEDIATOR_PORT}:8080"
       - "${PORT}:${PORT}"
       - "${DIDCOMM_PORT}:${DIDCOMM_PORT}"
     environment:
@@ -107,6 +128,9 @@ services:
       API_KEY_ENABLED: false
       API_KEY_AUTHENTICATE_AS_DEFAULT_USER:
       API_KEY_AUTO_PROVISIONING:
+      NODE_REFRESH_AND_SUBMIT_PERIOD:
+      NODE_MOVE_SCHEDULED_TO_PENDING_PERIOD:
+      NODE_WALLET_MAX_TPS:
     depends_on:
       db:
         condition: service_healthy
@@ -119,6 +143,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   vault-server:
     image: vault:1.13.3
@@ -135,9 +161,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  pg_data_db:
-  pgadmin:
-  enterprise_pg_data_db:
-  mediator_mongo_db:
