@@ -10,7 +10,7 @@ if [[ -z "${CI}" ]]; then
   trap cleanup SIGINT
 fi
 
-../update_env.sh
+# ../update_env.sh
 
 COMPOSE_NAME="local-prism-$RANDOM"
 

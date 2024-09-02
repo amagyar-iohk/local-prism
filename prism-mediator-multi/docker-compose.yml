@@ -1,6 +1,4 @@
 ---
-version: "3.8"
-
 services:
   ##########################
   # Database
@@ -8,16 +6,14 @@ services:
   db-issuer:
     image: postgres:13
     environment:
-      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,iris,agent,node_db"
+      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,agent,node_db"
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - pg_data_db-issuer:/var/lib/postgresql/data
       - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
       - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
-
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "node_db"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "agent"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,16 +21,15 @@ services:
   db-holder:
     image: postgres:13
     environment:
-      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,iris,agent,node_db"
+      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,agent,node_db"
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - pg_data_db-holder:/var/lib/postgresql/data
       - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
       - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
 
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "node_db"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "agent"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -59,7 +54,7 @@ services:
         condition: service_healthy
 
   prism-agent-issuer:
-    image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
+    image: ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
     ports:
       - "8090:8090"
       - "8081:8081"
@@ -121,7 +116,7 @@ services:
       retries: 5
 
   prism-agent-holder:
-    image: ghcr.io/input-output-hk/prism-agent:${PRISM_AGENT_VERSION}
+    image: ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -183,7 +178,7 @@ services:
       retries: 5
  
   vault-server:
-    image: vault:latest
+    image: vault:1.13.3
     #    ports:
     #      - "8200:8200"
     environment:
