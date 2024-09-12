@@ -1,0 +1,28 @@
+plugins:
+  - name: proxy-rewrite
+  - name: cors
+
+routes:
+
+  - uri: /cloud-agent/*
+    upstream_id: 4
+    plugins:
+      cors:
+        allow_origins: "*"
+      proxy-rewrite:
+        regex_uri: ["^/cloud-agent/(.*)", "/$1"]
+
+  - uri: /oid4vci/*
+    upstream_id: 4
+    plugins:
+      cors:
+        allow_origins: "*"
+      proxy-rewrite:
+        regex_uri: ["^/oid4vci/(.*)", "/oid4vci/$1"]
+
+upstreams:
+  - id: 4
+    nodes:
+      "prism-agent:8085": 1 # cloud agent
+    type: roundrobin
+#END

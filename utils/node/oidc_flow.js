@@ -5,10 +5,11 @@ const Api = require("./api");
 
 (async () => {
   const authServerUrl = `http://host.docker.internal:9981`;
-  const agentUrl = `http://localhost:8090`;
-  const oidcUrl = `${agentUrl}/oid4vci/issuers`;
-  const didsUrl = `${agentUrl}/did-registrar/dids`;
-  const schemasUrl = `${agentUrl}/schema-registry/schemas`;
+  const agentBaseUrl = `http://host.docker.internal:8090/cloud-agent`;
+  const oidcBaseUrl = `http://host.docker.internal:8090`;
+  const oidcUrl = `${oidcBaseUrl}/oid4vci/issuers`;
+  const didsUrl = `${agentBaseUrl}/did-registrar/dids`;
+  const schemasUrl = `${agentBaseUrl}/schema-registry/schemas`;
   const realm = "oid4vci-holder";
   const configurationId = "StudentProfile";
   const clientId = "alice-wallet";
@@ -25,15 +26,18 @@ const Api = require("./api");
   .then(x => x.json())
   .then(x => x.access_token);
 
-  await Api.post(
+   await Api.post(
     `${authServerUrl}/admin/realms`,
     { realm: realm, enabled: true },
     { headers: { Authorization: `Bearer ${adminToken}` } }
   );
 
+
+
+
   const realmAuthUrl = `${authServerUrl}/admin/realms/${realm}`
 
-  await Api.post(
+  const client = await Api.post(
     `${realmAuthUrl}/clients`,
     {
       "id": "cloud-agent",
@@ -44,18 +48,20 @@ const Api = require("./api");
     { headers: { Authorization: `Bearer ${adminToken}` } }
   );
 
-  await Api.post(
+
+  const client2= await Api.post(
     `${realmAuthUrl}/clients`,
     { 
       "id": clientId,
       "publicClient": true,
       "consentRequired": true,
-      "redirectUris": [ "http://localhost:7777/*" ]
+      "redirectUris": [ "http://localhost:3000/*" ]
     },
     { headers: { Authorization: `Bearer ${adminToken}` } }
   );
 
-  await Api.post(
+
+  const user = await Api.post(
     `${realmAuthUrl}/users`,
     { 
       "username": "Alice",
@@ -67,7 +73,6 @@ const Api = require("./api");
     },
     { headers: { Authorization: `Bearer ${adminToken}` } }
   );
-
 
   const clientScopeResponse = await Api.post(
     `${realmAuthUrl}/client-scopes`,
@@ -175,7 +180,7 @@ const Api = require("./api");
   await Api.post(`${issuerUrl}/credential-configurations`, {
     "configurationId": configurationId,
     "format": "jwt_vc_json",
-    "schemaId": `${agentUrl}/schema-registry/schemas/${schemaId}/schema`
+    "schemaId": `${agentBaseUrl}/schema-registry/schemas/${schemaId}/schema`
   });
 
   // make an offer
@@ -192,4 +197,5 @@ const Api = require("./api");
     clientId,
     credentialConfigurationId: configurationId,
   })
+  
 })();
