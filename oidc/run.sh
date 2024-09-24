@@ -11,7 +11,7 @@ if [[ -z "${CI}" ]]; then
 fi
 
 # ../update_env.sh
-PRISM_PORT="${PPORT:-8090}"
+PRISM_PORT="${PPORT:-8085}"
 MEDIATOR_PORT="${MPORT:-8080}"
 DIDCOMM_PORT="${DCPORT:-8081}"
 AUTHSERVER_PORT="9981"

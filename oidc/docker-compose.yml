@@ -21,7 +21,7 @@ services:
       - ./apisix/conf/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
       - ./apisix/conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
     ports:
-      - "${PORT}:9080/tcp"
+      - "8090:9080/tcp"
     depends_on:
       - prism-agent
 
@@ -57,14 +57,16 @@ services:
       - ./initdb.js:/docker-entrypoint-initdb.d/initdb.js
 
   atalaprism-mediator:
-    image: ghcr.io/input-output-hk/atala-prism-mediator:${ATALA_MEDIATOR_VERSION}
+    image: ghcr.io/hyperledger/identus-mediator:${ATALA_MEDIATOR_VERSION:-latest}
+    ports:
+      - "8080:8080"
     environment:
       # Creates the identity:
       - KEY_AGREEMENT_D=Z6D8LduZgZ6LnrOHPrMTS6uU2u5Btsrk1SGs4fn8M7c
       - KEY_AGREEMENT_X=Sr4SkIskjN_VdKTn0zkjYbhGTWArdUNE4j_DmUpnQGw
       - KEY_AUTHENTICATION_D=INXCnxFEl0atLIIQYruHzGd5sUivMRyQOzu87qVerug
       - KEY_AUTHENTICATION_X=MBjnXZxkMcoQVVL21hahWAw43RuAG-i64ipbeKKqwoA
-      - SERVICE_ENDPOINTS=http://localhost:8080;ws://localhost:8080/ws
+      - SERVICE_ENDPOINTS=http://192.168.1.44:8080;ws://192.168.1.44:8080/ws
       - MONGODB_USER=admin
       - MONGODB_PASSWORD=admin
       - MONGODB_PROTOCOL=mongodb
@@ -88,7 +90,10 @@ services:
 
   prism-agent:
     image:  ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
+    ports:
+      - "${PORT}:${PORT}"
     environment:
+      AGENT_DIDCOMM_PORT: 8081
       CASTOR_DB_HOST: db
       CASTOR_DB_PORT: 5432
       CASTOR_DB_NAME: castor
@@ -109,8 +114,8 @@ services:
       AGENT_DB_NAME: agent
       AGENT_DB_USER: postgres
       AGENT_DB_PASSWORD: postgres
-      REST_SERVICE_URL: http://localhost:${PORT}/cloud-agent
-      DIDCOMM_SERVICE_URL: http://localhost:${DIDCOMM_PORT}/
+      REST_SERVICE_URL: http://192.168.1.44:8090/cloud-agent
+      DIDCOMM_SERVICE_URL: http://192.168.1.44:8090/didcomm
       PRISM_NODE_HOST: prism-node
       PRISM_NODE_PORT: 50053
       VAULT_ADDR: http://vault-server:8200
@@ -141,7 +146,7 @@ services:
       vault-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/cloud-agent/_system/health"]
+      test: ["CMD", "curl", "-f", "http://prism-agent:8085/_system/health"]
       interval: 10s
       timeout: 10s
       retries: 5

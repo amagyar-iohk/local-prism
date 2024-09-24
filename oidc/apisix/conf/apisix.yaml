@@ -19,10 +19,20 @@ routes:
         allow_origins: "*"
       proxy-rewrite:
         regex_uri: ["^/oid4vci/(.*)", "/oid4vci/$1"]
-
+  - uri: /didcomm*
+    upstream_id: 3
+    plugins:
+      cors:
+        allow_origins: "*"
+      proxy-rewrite:
+        regex_uri: ["^/didcomm(.*)", "/$1"]
 upstreams:
   - id: 4
     nodes:
       "prism-agent:8085": 1 # cloud agent
+    type: roundrobin
+  - id: 3
+    nodes:
+      "prism-agent:8081": 1 # didcomm
     type: roundrobin
 #END
