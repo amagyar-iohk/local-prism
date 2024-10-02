@@ -10,8 +10,8 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      IDENTUS_URL: http://host.docker.internal:${PORT}
-    command: start-dev --health-enabled=true --hostname-url=http://host.docker.internal:${AUTHSERVER_PORT} --hostname-admin-url=http://host.docker.internal:${AUTHSERVER_PORT}
+      IDENTUS_URL: http://${DOCKERHOST}:${PORT}
+    command: start-dev --health-enabled=true --hostname-url=http://${DOCKERHOST}:${AUTHSERVER_PORT} --hostname-admin-url=http://${DOCKERHOST}:${AUTHSERVER_PORT}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

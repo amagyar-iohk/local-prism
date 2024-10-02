@@ -1,10 +1,17 @@
-const Api = require("./api");
-
 // setup script for OIDC
 // run once, if any failure, reset environment and run again
 
+const Api = require("./api");
+const dns = require('node:dns');
+const os = require('node:os');
+const util = require('node:util');
+
+
 (async () => {
-  const authServerUrl = `http://host.docker.internal:9981`;
+  const lookup = util.promisify(dns.lookup);
+  const lookup_result = await lookup(os.hostname(), { family: 4 });
+  const ipAddr = lookup_result.address;
+  const authServerUrl = `http://${ipAddr}:9981`;
   const agentUrl = `http://localhost:8090`;
   const oidcUrl = `${agentUrl}/oid4vci/issuers`;
   const didsUrl = `${agentUrl}/did-registrar/dids`;
@@ -50,7 +57,7 @@ const Api = require("./api");
       "id": clientId,
       "publicClient": true,
       "consentRequired": true,
-      "redirectUris": [ "http://localhost:7777/*" ]
+      "redirectUris": ["*"]
     },
     { headers: { Authorization: `Bearer ${adminToken}` } }
   );
@@ -179,11 +186,13 @@ const Api = require("./api");
   });
 
   // make an offer
-  await Api.post(`${issuerUrl}/credential-offers`, {
+  const offerResponse = await Api.post(`${issuerUrl}/credential-offers`, {
     credentialConfigurationId: configurationId,
     issuingDID: issuerDid,
     claims: { name: "Alice", age: 42 }
   });
+
+  const body = await offerResponse.json()
 
   // needed to run the flow in a separate script
   console.log({ 
@@ -191,5 +200,6 @@ const Api = require("./api");
     issuerDid, 
     clientId,
     credentialConfigurationId: configurationId,
+    offer: body
   })
 })();
