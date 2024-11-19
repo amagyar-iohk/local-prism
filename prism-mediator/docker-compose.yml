@@ -31,9 +31,9 @@ services:
     volumes:
       - ./initdb.js:/docker-entrypoint-initdb.d/initdb.js
 
-  atalaprism-mediator:
+  mediator:
     network_mode: "container:${COMPOSE_NAME}"
-    image: ghcr.io/input-output-hk/atala-prism-mediator:${ATALA_MEDIATOR_VERSION}
+    image: ghcr.io/hyperledger/identus-mediator:${ATALA_MEDIATOR_VERSION}
     environment:
       # Creates the identity:
       - KEY_AGREEMENT_D=Z6D8LduZgZ6LnrOHPrMTS6uU2u5Btsrk1SGs4fn8M7c

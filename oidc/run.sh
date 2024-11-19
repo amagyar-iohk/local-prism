@@ -10,7 +10,6 @@ if [[ -z "${CI}" ]]; then
   trap cleanup SIGINT
 fi
 
-# ../update_env.sh
 DOCKERHOST=$(ip route show default | awk '/default/ {print $9}')
 PRISM_PORT="${PPORT:-8090}"
 MEDIATOR_PORT="${MPORT:-8080}"
