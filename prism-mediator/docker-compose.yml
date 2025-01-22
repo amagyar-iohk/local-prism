@@ -1,41 +1,55 @@
----
 services:
-  ##########################
-  # Database
-  ##########################
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_MULTIPLE_DATABASES: "castor,pollux,connect,agent,node_db"
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+  #################################################################
+  #                            Gateway                            #
+  #################################################################
+  traefik:
+    image: "traefik:v3.2"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.traefik.address=:3000"
+      - "--entryPoints.mediator.address=:8080"
+      - "--entryPoints.cloud-agent.address=:8085"
+      - "--entryPoints.didcomm.address=:8090"
+    ports:
+      - "8080:8080"
+      - "3000:3000"
+      - "8085:8085"
+      - "8090:8090"
     volumes:
-      - ./postgres/init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
-      - ./postgres/max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "agent"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.dashboard.rule=Host(`localhost`)"
+        - "traefik.http.routers.dashboard.entrypoints=traefik"
+        - "traefik.http.routers.dashboard.service=api@internal"
 
-  ##########################
-  # Mediator
-  ##########################
-  mongo:
-    image: mongo:6.0
-    command: ["--auth"]
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
-      - MONGO_INITDB_DATABASE=mediator
-    volumes:
-      - ./initdb.js:/docker-entrypoint-initdb.d/initdb.js
+  #################################################################
+  #     Workaround to enable localhost comm between services      #
+  #################################################################
+  networking:
+    build: .
+    container_name: "networking"
 
-  mediator:
-    network_mode: "container:${COMPOSE_NAME}"
-    image: ghcr.io/hyperledger/identus-mediator:${ATALA_MEDIATOR_VERSION}
+  #################################################################
+  #                           Services                            #
+  #################################################################
+  identus-mediator:
+    image: ghcr.io/hyperledger/identus-mediator:${MEDIATOR_VERSION}
+    network_mode: "container:networking"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mediator.rule=Host(`localhost`)"
+      - "traefik.http.routers.mediator.entrypoints=mediator"
+      - "traefik.http.services.mediator.loadbalancer.server.port=8080"
     environment:
       # Creates the identity:
+      # These keys are for demo purpose only for production deployments generate keys
+      # Please follow the README file in the Mediator repository for guidelines on How to generate JWK format keys
+      # KEY_AGREEMENT KEY_AUTHENTICATION are using format JOSE(JWK) OKP type base64urlsafe encoded keys
       - KEY_AGREEMENT_D=Z6D8LduZgZ6LnrOHPrMTS6uU2u5Btsrk1SGs4fn8M7c
       - KEY_AGREEMENT_X=Sr4SkIskjN_VdKTn0zkjYbhGTWArdUNE4j_DmUpnQGw
       - KEY_AUTHENTICATION_D=INXCnxFEl0atLIIQYruHzGd5sUivMRyQOzu87qVerug
@@ -49,32 +63,23 @@ services:
       - MONGODB_DB_NAME=mediator
     depends_on:
       - "mongo"
-      - "prism-agent"
+      - "networking"
 
-  ##########################
-  # Building-blocks
-  ##########################
-  prism-node:
-    image: ghcr.io/input-output-hk/prism-node:${PRISM_NODE_VERSION}
+  cloud-agent:
+    image: ghcr.io/hyperledger/identus-cloud-agent:${CLOUD_AGENT_VERSION}
+    network_mode: "container:networking"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cloud-agent.rule=Host(`localhost`)"
+      - "traefik.http.routers.cloud-agent.entrypoints=cloud-agent"
+      - "traefik.http.routers.cloud-agent.service=cloud-agent"
+      - "traefik.http.services.cloud-agent.loadbalancer.server.port=8085"
+      
+      - "traefik.http.routers.didcomm.rule=Host(`localhost`)"
+      - "traefik.http.routers.didcomm.entrypoints=didcomm"
+      - "traefik.http.routers.didcomm.service=didcomm"
+      - "traefik.http.services.didcomm.loadbalancer.server.port=8090"
     environment:
-      NODE_PSQL_HOST: db:5432
-    depends_on:
-      db:
-        condition: service_healthy
-
-  prism-agent:
-    container_name: ${COMPOSE_NAME}
-    image:  ghcr.io/hyperledger/identus-cloud-agent:${PRISM_AGENT_VERSION}
-    ports:
-      - "${MEDIATOR_PORT}:8080"
-      - "${PORT}:${PORT}"
-      - "${DIDCOMM_PORT}:${DIDCOMM_PORT}"
-    environment:
-      CASTOR_DB_HOST: db
-      CASTOR_DB_PORT: 5432
-      CASTOR_DB_NAME: castor
-      CASTOR_DB_USER: postgres
-      CASTOR_DB_PASSWORD: postgres
       POLLUX_DB_HOST: db
       POLLUX_DB_PORT: 5432
       POLLUX_DB_NAME: pollux
@@ -90,57 +95,74 @@ services:
       AGENT_DB_NAME: agent
       AGENT_DB_USER: postgres
       AGENT_DB_PASSWORD: postgres
-      AGENT_HTTP_PORT: ${PORT}
-      REST_SERVICE_URL: http://localhost:${PORT}
-      AGENT_DIDCOMM_PORT: ${DIDCOMM_PORT}
-      DIDCOMM_SERVICE_URL: http://localhost:${DIDCOMM_PORT}
       PRISM_NODE_HOST: prism-node
       PRISM_NODE_PORT: 50053
-      VAULT_ADDR: http://vault-server:8200
-      VAULT_TOKEN: root
+      POLLUX_STATUS_LIST_REGISTRY_PUBLIC_URL: http://localhost:8085
+      DIDCOMM_SERVICE_URL: http://localhost:8090
+      REST_SERVICE_URL: http://localhost:8085
       SECRET_STORAGE_BACKEND: postgres
       DEV_MODE: true
-      DEFAULT_WALLET_ENABLED:
-      DEFAULT_WALLET_SEED:
-      DEFAULT_WALLET_WEBHOOK_URL:
-      DEFAULT_WALLET_WEBHOOK_API_KEY:
-      DEFAULT_WALLET_AUTH_API_KEY:
-      GLOBAL_WEBHOOK_URL:
-      GLOBAL_WEBHOOK_API_KEY:
-      WEBHOOK_PARALLELISM:
-      ADMIN_TOKEN:
-      API_KEY_SALT:
       API_KEY_ENABLED: false
-      API_KEY_AUTHENTICATE_AS_DEFAULT_USER:
-      API_KEY_AUTO_PROVISIONING:
-      NODE_REFRESH_AND_SUBMIT_PERIOD:
-      NODE_MOVE_SCHEDULED_TO_PENDING_PERIOD:
-      NODE_WALLET_MAX_TPS:
     depends_on:
       db:
         condition: service_healthy
       prism-node:
         condition: service_started
-      vault-server:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/_system/health"]
-      interval: 10s
+      test: [ "CMD", "curl", "-f", "http://localhost:8085/_system/health" ]
+      interval: 30s
       timeout: 10s
       retries: 5
 
-  vault-server:
-    image: vault:1.13.3
-    #    ports:
-    #      - "8200:8200"
+  #################################################################
+  #                        Infrastructure                         #
+  #################################################################
+  db:
+    image: postgres:13
     environment:
-      VAULT_ADDR: "http://0.0.0.0:8200"
-      VAULT_DEV_ROOT_TOKEN_ID: root
-    command: server -dev -dev-root-token-id=root
-    cap_add:
-      - IPC_LOCK
+      POSTGRES_MULTIPLE_DATABASES: "pollux,connect,agent,node_db"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg_data_db:/var/lib/postgresql/data
+      - ./resources/postgres-init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
+      - ./resources/postgres-max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
     healthcheck:
-      test: ["CMD", "vault", "status"]
+      test: [ "CMD", "pg_isready", "-U", "postgres", "-d", "agent" ]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    command: ["--auth"]
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+      - MONGO_INITDB_DATABASE=mediator
+    volumes:
+      - ./resources/mongo-initdb.js:/docker-entrypoint-initdb.d/initdb.js
+      - mongo_db:/data/db
+      - mongo_configdb:/data/configdb
+
+  prism-node:
+    image: docker.io/identus/prism-node:${PRISM_NODE_VERSION}
+    environment:
+      NODE_PSQL_HOST: db:5432
+      NODE_REFRESH_AND_SUBMIT_PERIOD:
+      NODE_MOVE_SCHEDULED_TO_PENDING_PERIOD:
+      NODE_WALLET_MAX_TPS:
+        # NODE_PSQL_USERNAME: postgres
+        # NODE_PSQL_HOST: database-prism-node.cluster-cv1pad4ulozd.eu-central-1.rds.amazonaws.com:5432
+        # NODE_PSQL_PASSWORD: Gu3sa7hJEIu4URQSZcH4
+        # NODE_PSQL_DATABASE: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pg_data_db:
+  mongo_db:
+  mongo_configdb:
