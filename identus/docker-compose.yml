@@ -6,7 +6,6 @@ services:
     image: "traefik:v3.2"
     container_name: "traefik"
     command:
-      - "--log.level=DEBUG"
       - "--api.insecure=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
@@ -32,13 +31,14 @@ services:
   #################################################################
   networking:
     build: .
+    stop_grace_period: 0s
     container_name: "networking"
 
   #################################################################
   #                           Services                            #
   #################################################################
   identus-mediator:
-    image: ghcr.io/hyperledger/identus-mediator:${MEDIATOR_VERSION}
+    image: hyperledgeridentus/identus-mediator:${MEDIATOR_VERSION}
     network_mode: "container:networking"
     labels:
       - "traefik.enable=true"
@@ -64,9 +64,15 @@ services:
     depends_on:
       - "mongo"
       - "networking"
+    healthcheck:
+      test: curl --fail http://localhost:8080/health || exit 1
+      interval: 1s
+      timeout: 5s
+      retries: 25
 
   cloud-agent:
-    image: ghcr.io/hyperledger/identus-cloud-agent:${CLOUD_AGENT_VERSION}
+    image: hyperledgeridentus/identus-cloud-agent:${CLOUD_AGENT_VERSION}
+    # image: ghcr.io/hyperledger/identus-cloud-agent:${CLOUD_AGENT_VERSION}
     network_mode: "container:networking"
     labels:
       - "traefik.enable=true"
@@ -101,8 +107,9 @@ services:
       DIDCOMM_SERVICE_URL: http://localhost:8090
       REST_SERVICE_URL: http://localhost:8085
       SECRET_STORAGE_BACKEND: postgres
-      DEV_MODE: true
       API_KEY_ENABLED: false
+      ENABLE_ANONCRED: true
+      LOG_LEVEL: WARN
     depends_on:
       db:
         condition: service_healthy
@@ -110,54 +117,47 @@ services:
         condition: service_started
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8085/_system/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 1s
+      timeout: 5s
+      retries: 25
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m" # Max size of a log file
+        max-file: "3" # Number of log files to keep
 
   #################################################################
   #                        Infrastructure                         #
   #################################################################
   db:
-    image: postgres:13
-    environment:
-      POSTGRES_MULTIPLE_DATABASES: "pollux,connect,agent,node_db"
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+    image: amagyardev/identus-postgres:latest
     volumes:
       - pg_data_db:/var/lib/postgresql/data
-      - ./resources/postgres-init-script.sh:/docker-entrypoint-initdb.d/init-script.sh
-      - ./resources/postgres-max_conns.sql:/docker-entrypoint-initdb.d/max_conns.sql
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres", "-d", "agent" ]
-      interval: 10s
+      interval: 1s
       timeout: 5s
       retries: 5
 
   mongo:
-    image: mongo:6.0
+    image: amagyardev/identus-mongodb:latest
     ports:
       - "27017:27017"
-    command: ["--auth"]
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin
       - MONGO_INITDB_DATABASE=mediator
     volumes:
-      - ./resources/mongo-initdb.js:/docker-entrypoint-initdb.d/initdb.js
       - mongo_db:/data/db
       - mongo_configdb:/data/configdb
 
   prism-node:
-    image: docker.io/identus/prism-node:${PRISM_NODE_VERSION}
+    image: inputoutput/prism-node:${PRISM_NODE_VERSION}
     environment:
       NODE_PSQL_HOST: db:5432
       NODE_REFRESH_AND_SUBMIT_PERIOD:
       NODE_MOVE_SCHEDULED_TO_PENDING_PERIOD:
       NODE_WALLET_MAX_TPS:
-        # NODE_PSQL_USERNAME: postgres
-        # NODE_PSQL_HOST: database-prism-node.cluster-cv1pad4ulozd.eu-central-1.rds.amazonaws.com:5432
-        # NODE_PSQL_PASSWORD: Gu3sa7hJEIu4URQSZcH4
-        # NODE_PSQL_DATABASE: postgres
     depends_on:
       db:
         condition: service_healthy
