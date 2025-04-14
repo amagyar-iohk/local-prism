@@ -26,6 +26,18 @@ services:
         - "traefik.http.routers.dashboard.entrypoints=traefik"
         - "traefik.http.routers.dashboard.service=api@internal"
 
+        # Define the CORS middleware
+        - "traefik.http.middlewares.cors-header.headers.accesscontrolalloworigin=* "
+        - "traefik.http.middlewares.cors-header.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+        - "traefik.http.middlewares.cors-header.headers.accesscontrolallowheaders=Content-Type,Authorization"
+        - "traefik.http.middlewares.cors-header.headers.accesscontrolexposeheaders=Content-Length"
+        - "traefik.http.middlewares.cors-header.headers.accesscontrolmaxage=3600"
+
+        # Apply the CORS middleware to your entry points (or specific routers)
+        - "traefik.http.entrypoints.mediator.middlewares=cors-header@docker"
+        - "traefik.http.entrypoints.cloud-agent.middlewares=cors-header@docker"
+        - "traefik.http.entrypoints.didcomm.middlewares=cors-header@docker"
+
   #################################################################
   #     Workaround to enable localhost comm between services      #
   #################################################################
